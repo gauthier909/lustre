@@ -1,0 +1,57 @@
+---------------------------------------------------------------------
+-- Constants:
+const
+  SHORT_DROP_NUM:int = 2;
+  LONG_DROP_NUM:int = 10;
+  MAX_NOF_SHORT_DROPS:int = 7;
+  MAX_SPEED:real = 7.0;
+  BRK_SOFT:real = 1.0;
+
+---------------------------------------------------------------------
+
+-- task L1
+node ConnectionAlarm(up:bool) returns (alarm,short_drop:bool;count_short,total:int);
+var prev_count_short,prev_total:int;
+let
+  prev_count_short= 0 -> pre count_short;
+  prev_total= 0 -> pre total;
+  count_short = (if not up then (prev_count_short + 1)
+  else 0);
+  alarm = (if total >= 7 then true
+  else false);
+  short_drop =  false -> (if ((count_short mod 2)= 0 and count_short <> 0) then (true)
+  else false);
+  total = (if short_drop = true then (prev_total + 1)
+  else prev_total);
+tel
+
+-- -- task L2
+-- node BrakeCableActuator(brk:real; up:bool) returns (clinch:bool);
+-- let
+--   clinch = false;
+-- tel
+
+-- -- task L3
+-- node LossyChannel(rnd,brk:real; up:bool) returns (brk_rcvd:real);
+-- let
+--   brk_rcvd = 0.0;
+-- tel
+
+-- -- task L4
+-- node MotorController(brk_rcvd:real; up:bool; human,speed,battery:real) returns (asst_lvl:real);
+-- let
+--   asst_lvl = 0.0;
+-- tel
+
+-- -- task L5
+-- node System(up:bool; rnd,brk,human,speed,battery:real) returns (clinch:bool; asst_lvl:real);
+-- var
+--   alarm:bool;
+--   brk_rcvd:real;
+-- let
+--   clinch = BrakeCableActuator(brk,up);
+--   brk_rcvd = LossyChannel(rnd,brk,up);
+--   asst_lvl = MotorController(brk_rcvd,up,human,speed,battery);
+--   alarm = ConnectionAlarm(up);
+-- tel
+

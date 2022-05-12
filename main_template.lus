@@ -10,38 +10,54 @@ const
 ---------------------------------------------------------------------
 
 -- task L1
-node ConnectionAlarm(up:bool) returns (alarm,short_drop:bool;count_short,total:int);
-var prev_count_short,prev_total:int;
+node ConnectionAlarm(up:bool) returns (alarm:bool);
+var prev_count_short,prev_total,prev_count_long,count_short,total_short,count_long:int;short_drop:bool;
 let
   prev_count_short= 0 -> pre count_short;
-  prev_total= 0 -> pre total;
+  prev_count_long= 0 -> pre count_long;
+  prev_total= 0 -> pre total_short;
   count_short = (if not up then (prev_count_short + 1)
   else 0);
-  alarm = (if total >= 7 then true
+  count_long = (if not up then (prev_count_long +1)
+  else if prev_count_long >= LONG_DROP_NUM then 10
+  else 0);
+  alarm = (if total_short >= MAX_NOF_SHORT_DROPS then true
+  else if count_long >= LONG_DROP_NUM then true
   else false);
   short_drop =  false -> (if ((count_short mod 2)= 0 and count_short <> 0) then (true)
   else false);
-  total = (if short_drop = true then (prev_total + 1)
+  total_short = (if short_drop = true then (prev_total + 1)
   else prev_total);
 tel
 
 -- -- task L2
--- node BrakeCableActuator(brk:real; up:bool) returns (clinch:bool);
--- let
---   clinch = false;
--- tel
+node BrakeCableActuator(brk:real; up:bool) returns (clinch:bool);
+var alarm:bool;
+let
+  alarm = ConnectionAlarm(up);
+  clinch = (if brk = 0.0 then false
+  else if brk > BRK_SOFT then true
+  else if brk <= BRK_SOFT and alarm = true and brk >= 0.0 then true --Normally it's <> 0 since brake can't be negative but it's simplier to test that way
+  else false);
+tel
 
 -- -- task L3
--- node LossyChannel(rnd,brk:real; up:bool) returns (brk_rcvd:real);
--- let
---   brk_rcvd = 0.0;
--- tel
+node LossyChannel(rnd,brk:real; up:bool) returns (brk_rcvd:real);
+let
+  brk_rcvd = (if up then brk
+  else rnd);
+tel
 
 -- -- task L4
--- node MotorController(brk_rcvd:real; up:bool; human,speed,battery:real) returns (asst_lvl:real);
--- let
---   asst_lvl = 0.0;
--- tel
+node MotorController(brk_rcvd:real; up:bool; human,speed,battery:real) returns (asst_lvl:real);
+var alarm:bool;
+let
+  alarm = ConnectionAlarm(up);
+  asst_lvl = (if alarm then 0.0
+  else if (human <= MAX_SPEED and battery > 0.0) then human
+  else if human > MAX_SPEED then MAX_SPEED
+  else 3.0);
+tel
 
 -- -- task L5
 -- node System(up:bool; rnd,brk,human,speed,battery:real) returns (clinch:bool; asst_lvl:real);

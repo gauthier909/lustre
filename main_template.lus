@@ -53,21 +53,44 @@ node MotorController(brk_rcvd:real; up:bool; human,speed,battery:real) returns (
 var alarm:bool;
 let
   alarm = ConnectionAlarm(up);
-  asst_lvl = (if alarm then 0.0
-  else if (human <= MAX_SPEED and battery > 0.0) then human
-  else if human > MAX_SPEED then MAX_SPEED
-  else 3.0);
+  asst_lvl = (if alarm then 0.0 -- no assitance if alarm is set
+  else if (speed <= MAX_SPEED and battery > 0.0 and brk_rcvd = 0.0) then human --conditions for assist
+  else if (up and brk_rcvd > 0.0) then (-brk_rcvd) -- condition for break assist
+  else 0.0 --otherwise no assist at all
+  );
 tel
 
--- -- task L5
--- node System(up:bool; rnd,brk,human,speed,battery:real) returns (clinch:bool; asst_lvl:real);
--- var
---   alarm:bool;
---   brk_rcvd:real;
--- let
---   clinch = BrakeCableActuator(brk,up);
---   brk_rcvd = LossyChannel(rnd,brk,up);
---   asst_lvl = MotorController(brk_rcvd,up,human,speed,battery);
---   alarm = ConnectionAlarm(up);
--- tel
 
+-- -- task L5
+node System(up:bool; rnd,brk,human,speed,battery:real) returns (clinch:bool; asst_lvl:real);
+var
+  alarm:bool;
+  isRegenBraking:bool;
+  brk_rcvd:real;
+  isHumanRequest:bool;
+  check_assist_level:bool;
+  isAssisting:bool;
+  isBraking:bool;
+  assistAndBreak:bool;
+let
+  alarm = ConnectionAlarm(up);
+  clinch = BrakeCableActuator(brk,up);
+  brk_rcvd = LossyChannel(rnd,brk,up);
+  asst_lvl = MotorController(brk_rcvd,up,human,speed,battery);
+  isRegenBraking = (if asst_lvl < 0.0 then true
+  else false);
+  isHumanRequest = (if asst_lvl < 0.0 and brk_rcvd <> rnd then true
+  else false);
+  check_assist_level = (if asst_lvl = 0.0 or asst_lvl = -brk or asst_lvl = human then true
+  else false);
+  isAssisting = (if asst_lvl > 0.0 then true
+  else false);
+  isBraking = (if brk > 0.0 and brk_rcvd <> rnd then true
+  else false);
+  assistAndBreak = (if isBraking and isAssisting then true
+  else false);
+  assert(not(alarm and isRegenBraking)); -- when alarm is true regenerative braking cannot happen
+  assert(not(not isHumanRequest and isRegenBraking)); -- Regen braking only occurs if it is requested by the human
+  assert(check_assist_level); -- Assistance always equal to 0, -brk or human
+  --assert(assistAndBreak and up and not alarm and isRegenBraking); --see last condition
+tel
